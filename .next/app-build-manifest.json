@@ -11,6 +11,11 @@
       "static/chunks/main-app.js",
       "static/chunks/app/[[...slug]]/page.js"
     ],
+    "/api/auth/login/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/auth/login/route.js"
+    ],
     "/api/parcel-drafts/step-1/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -30,6 +35,16 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/parcel-drafts/[draftId]/items/[itemId]/route.js"
+    ],
+    "/api/parcel-drafts/[draftId]/service/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/parcel-drafts/[draftId]/service/route.js"
+    ],
+    "/api/parcel-drafts/[draftId]/booking/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/parcel-drafts/[draftId]/booking/route.js"
     ]
   }
 }

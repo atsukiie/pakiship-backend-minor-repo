@@ -56,6 +56,8 @@ export function SendParcelPage() {
   const [draftId, setDraftId] = useState<string | null>(null);
   const [isSavingStep1, setIsSavingStep1] = useState(false);
   const [isSavingStep2, setIsSavingStep2] = useState(false);
+  const [isSavingStep4, setIsSavingStep4] = useState(false);
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
   const [isLoadingDraft, setIsLoadingDraft] = useState(false);
   const [busyCartItemId, setBusyCartItemId] = useState<string | null>(null);
   const [selectingFor, setSelectingFor] = useState<
@@ -308,29 +310,113 @@ export function SendParcelPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPaymentMethod)
-      return showError(
-        "Please select a payment method before continuing.",
+  const handleContinueFromStep4 = async () => {
+    if (!draftId) {
+      showError("Please complete the earlier steps first.");
+      return;
+    }
+
+    if (selectedService === "pakishare" && !selectedDropOffPoint) {
+      showError(
+        "PakiShare requires you to select a drop-off hub before continuing.",
       );
+      return;
+    }
 
-    const trackingNumber = `PKS-2024-${Math.floor(1000 + Math.random() * 9000)}`;
-    const totalParcels = cartItems.reduce(
-      (sum, item) => sum + item.quantity,
-      0,
-    );
+    if (!selectedService) {
+      showError("Please select a delivery service to continue.");
+      return;
+    }
 
-    setBookingConfirmationData({
-      trackingNumber,
-      senderName,
-      receiverName,
-      totalParcels,
-      distance,
-      duration,
-      servicePrice,
-    });
-    setShowBookingConfirmation(true);
+    setIsSavingStep4(true);
+
+    try {
+      const response = await fetch(`/api/parcel-drafts/${draftId}/service`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          serviceId: selectedService,
+          servicePrice,
+          dropOffPoint: selectedDropOffPoint,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        showError(result.message || "Unable to save delivery service.");
+        return;
+      }
+
+      setCurrentStep(5);
+    } catch {
+      showError("Unable to save delivery service.");
+    } finally {
+      setIsSavingStep4(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!draftId) {
+      showError("Please complete the earlier steps first.");
+      return;
+    }
+
+    if (!selectedPaymentMethod) {
+      showError("Please select a payment method before continuing.");
+      return;
+    }
+
+    setIsSubmittingBooking(true);
+
+    try {
+      const totalParcels = cartItems.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      );
+      const response = await fetch(`/api/parcel-drafts/${draftId}/booking`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          senderName,
+          senderPhone,
+          receiverName,
+          receiverPhone,
+          paymentMethod: selectedPaymentMethod,
+          selectedService,
+          servicePrice,
+          totalParcels,
+          distance,
+          duration,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        showError(result.message || "Unable to complete booking.");
+        return;
+      }
+
+      setBookingConfirmationData({
+        trackingNumber: result.trackingNumber,
+        senderName,
+        receiverName,
+        totalParcels,
+        distance,
+        duration,
+        servicePrice,
+      });
+      setShowBookingConfirmation(true);
+    } catch {
+      showError("Unable to complete booking.");
+    } finally {
+      setIsSubmittingBooking(false);
+    }
   };
 
   const stepTitles = [
@@ -616,27 +702,20 @@ export function SendParcelPage() {
                 <ChevronLeft className="w-5 h-5" /> Back
               </button>
               <button
-                onClick={() => {
-                  if (
-                    selectedService === "pakishare" &&
-                    !selectedDropOffPoint
-                  ) {
-                    showError(
-                      "PakiShare requires you to select a drop-off hub before continuing.",
-                    );
-                    return;
-                  }
-                  if (!selectedService) {
-                    showError(
-                      "Please select a delivery service to continue.",
-                    );
-                    return;
-                  }
-                  setCurrentStep(5);
-                }}
+                onClick={handleContinueFromStep4}
+                disabled={isSavingStep4}
                 className={primaryBtnClasses}
               >
-                Continue <ChevronRight className="w-5 h-5" />
+                {isSavingStep4 ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Continue <ChevronRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -804,10 +883,20 @@ export function SendParcelPage() {
                     </button>
                     <button
                       type="submit"
+                      disabled={isSubmittingBooking}
                       className="flex-[1.5] h-14 rounded-2xl bg-slate-900 text-white text-sm font-black shadow-2xl shadow-slate-900/20 hover:bg-[#39B5A8] hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 group"
                     >
-                      Complete Booking
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      {isSubmittingBooking ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Completing...
+                        </>
+                      ) : (
+                        <>
+                          Complete Booking
+                          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

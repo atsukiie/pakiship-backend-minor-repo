@@ -1,7 +1,6 @@
 {
-  "/api/parcel-drafts/step-1/route": "app/api/parcel-drafts/step-1/route.js",
-  "/api/parcel-drafts/[draftId]/route": "app/api/parcel-drafts/[draftId]/route.js",
   "/api/parcel-drafts/[draftId]/items/route": "app/api/parcel-drafts/[draftId]/items/route.js",
-  "/api/parcel-drafts/[draftId]/items/[itemId]/route": "app/api/parcel-drafts/[draftId]/items/[itemId]/route.js",
+  "/api/parcel-drafts/[draftId]/service/route": "app/api/parcel-drafts/[draftId]/service/route.js",
+  "/api/parcel-drafts/[draftId]/booking/route": "app/api/parcel-drafts/[draftId]/booking/route.js",
   "/[[...slug]]/page": "app/[[...slug]]/page.js"
 }
