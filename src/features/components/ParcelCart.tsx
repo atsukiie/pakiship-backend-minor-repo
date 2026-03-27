@@ -1,4 +1,4 @@
-import { ShoppingCart, Trash2, ShieldCheck, Zap } from "lucide-react";
+import { ShoppingCart, Trash2, ShieldCheck, Zap, Minus, Plus, Loader2 } from "lucide-react";
 
 interface CartItem {
   id: string;
@@ -14,13 +14,15 @@ interface ParcelCartProps {
   onUpdateQuantity?: (id: string, quantity: number) => void;
   onRemoveItem: (id: string) => void;
   onContinue: () => void;
+  busyItemId?: string | null;
 }
 
 export default function ParcelCart({ 
   items, 
-  onUpdateQuantity: _onUpdateQuantity,
+  onUpdateQuantity,
   onRemoveItem, 
-  onContinue 
+  onContinue: _onContinue,
+  busyItemId,
 }: ParcelCartProps) {
   
   const getItemTypeData = (type: string) => {
@@ -70,6 +72,7 @@ export default function ParcelCart({
         {items.map((item) => {
           const itemData = getItemTypeData(item.itemType);
           const isSensitive = ["food", "fragile"].includes(item.itemType.toLowerCase());
+          const isBusy = busyItemId === item.id;
 
           return (
             <div
@@ -91,10 +94,11 @@ export default function ParcelCart({
                 </div>
                 <button
                   onClick={() => onRemoveItem(item.id)}
-                  className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                  disabled={isBusy}
+                  className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all disabled:opacity-50"
                   aria-label="Remove item"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 </button>
               </div>
 
@@ -131,6 +135,33 @@ export default function ParcelCart({
                     </span>
                   </div>
                 )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Adjust Quantity
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!onUpdateQuantity || isBusy || item.quantity <= 1}
+                    onClick={() => onUpdateQuantity?.(item.id, item.quantity - 1)}
+                    className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-[#39B5A8] hover:border-[#39B5A8]/30 transition-all disabled:opacity-40"
+                  >
+                    <Minus className="w-4 h-4 mx-auto" />
+                  </button>
+                  <span className="min-w-8 text-center font-bold text-[#041614]">
+                    {item.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!onUpdateQuantity || isBusy}
+                    onClick={() => onUpdateQuantity?.(item.id, item.quantity + 1)}
+                    className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-500 hover:text-[#39B5A8] hover:border-[#39B5A8]/30 transition-all disabled:opacity-40"
+                  >
+                    <Plus className="w-4 h-4 mx-auto" />
+                  </button>
+                </div>
               </div>
             </div>
           );

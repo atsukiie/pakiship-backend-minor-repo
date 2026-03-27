@@ -83,6 +83,42 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/api/parcel-drafts/[draftId]/items/[itemId]/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/parcel-drafts/[draftId]/items/[itemId]">> = Specific
+  const handler = {} as typeof import("../../src/app/api/parcel-drafts/[draftId]/items/[itemId]/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/api/parcel-drafts/[draftId]/items/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/parcel-drafts/[draftId]/items">> = Specific
+  const handler = {} as typeof import("../../src/app/api/parcel-drafts/[draftId]/items/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/api/parcel-drafts/[draftId]/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/parcel-drafts/[draftId]">> = Specific
+  const handler = {} as typeof import("../../src/app/api/parcel-drafts/[draftId]/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/api/parcel-drafts/step-1/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/parcel-drafts/step-1">> = Specific
+  const handler = {} as typeof import("../../src/app/api/parcel-drafts/step-1/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 
 
 

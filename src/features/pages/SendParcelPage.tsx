@@ -53,6 +53,11 @@ export function SendParcelPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [showLocationPicker, setShowLocationPicker] =
     useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [isSavingStep1, setIsSavingStep1] = useState(false);
+  const [isSavingStep2, setIsSavingStep2] = useState(false);
+  const [isLoadingDraft, setIsLoadingDraft] = useState(false);
+  const [busyCartItemId, setBusyCartItemId] = useState<string | null>(null);
   const [selectingFor, setSelectingFor] = useState<
     "pickup" | "delivery" | null
   >(null);
@@ -120,25 +125,187 @@ export function SendParcelPage() {
     setShowLocationPicker(true);
   };
 
-  const handleContinueFromPackageDetails = (
+  const handleContinueFromPackageDetails = async (
     details: PackageDetailsType,
   ) => {
-    const existingIndex = cartItems.findIndex(
-      (item) =>
-        item.size === details.size &&
-        item.itemType === details.itemType,
-    );
-    if (existingIndex !== -1) {
-      const newCart = [...cartItems];
-      newCart[existingIndex].quantity += details.quantity;
-      setCartItems(newCart);
-    } else {
-      setCartItems([
-        ...cartItems,
-        { ...details, id: `${Date.now()}` },
-      ]);
+    if (!draftId) {
+      showError("Please complete route details first.");
+      return;
     }
-    setCurrentStep(3);
+
+    setIsSavingStep2(true);
+
+    try {
+      const response = await fetch(`/api/parcel-drafts/${draftId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...details,
+          photoName: details.photo?.name ?? null,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        showError(result.message || "Unable to save parcel details.");
+        return;
+      }
+
+      const savedItemId = String(result.itemId ?? Date.now());
+
+      const nextItem = { ...details, id: savedItemId };
+
+      const existingIndex = cartItems.findIndex(
+        (item) =>
+          item.size === details.size &&
+          item.itemType === details.itemType &&
+          item.deliveryGuarantee === details.deliveryGuarantee,
+      );
+      if (existingIndex !== -1) {
+        const newCart = [...cartItems];
+        newCart[existingIndex].quantity += details.quantity;
+        setCartItems(newCart);
+      } else {
+        setCartItems([...cartItems, nextItem]);
+      }
+      setCurrentStep(3);
+    } catch {
+      showError("Unable to save parcel details.");
+    } finally {
+      setIsSavingStep2(false);
+    }
+  };
+
+  const handleContinueFromStep1 = async () => {
+    if (!pickupLocation || !deliveryLocation) {
+      showError(
+        "Please select both pickup and delivery locations to continue.",
+      );
+      return;
+    }
+
+    setIsSavingStep1(true);
+
+    try {
+      const response = await fetch("/api/parcel-drafts/step-1", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          draftId,
+          pickupLocation,
+          deliveryLocation,
+          distance,
+          duration,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        showError(result.message || "Unable to save route details.");
+        return;
+      }
+
+      setDraftId(result.draftId);
+      setCurrentStep(2);
+    } catch {
+      showError("Unable to save route details.");
+    } finally {
+      setIsSavingStep1(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!draftId) return;
+
+    const loadDraft = async () => {
+      setIsLoadingDraft(true);
+      try {
+        const response = await fetch(`/api/parcel-drafts/${draftId}`);
+        const result = await response.json();
+
+        if (!response.ok) {
+          return;
+        }
+
+        if (result.draft?.pickupLocation) {
+          setPickupLocation(result.draft.pickupLocation);
+        }
+        if (result.draft?.deliveryLocation) {
+          setDeliveryLocation(result.draft.deliveryLocation);
+        }
+        if (Array.isArray(result.draft?.items)) {
+          setCartItems(result.draft.items);
+        }
+      } finally {
+        setIsLoadingDraft(false);
+      }
+    };
+
+    void loadDraft();
+  }, [draftId]);
+
+  const handleUpdateCartQuantity = async (itemId: string, quantity: number) => {
+    if (!draftId) return;
+
+    setBusyCartItemId(itemId);
+    try {
+      const response = await fetch(
+        `/api/parcel-drafts/${draftId}/items/${itemId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ quantity }),
+        },
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        showError(result.message || "Unable to update parcel quantity.");
+        return;
+      }
+
+      setCartItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, quantity: result.quantity } : item,
+        ),
+      );
+    } catch {
+      showError("Unable to update parcel quantity.");
+    } finally {
+      setBusyCartItemId(null);
+    }
+  };
+
+  const handleRemoveCartItem = async (itemId: string) => {
+    if (!draftId) return;
+
+    setBusyCartItemId(itemId);
+    try {
+      const response = await fetch(
+        `/api/parcel-drafts/${draftId}/items/${itemId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        showError(result.message || "Unable to remove parcel item.");
+        return;
+      }
+
+      setCartItems((prev) => prev.filter((item) => item.id !== result.itemId));
+    } catch {
+      showError("Unable to remove parcel item.");
+    } finally {
+      setBusyCartItemId(null);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -324,16 +491,20 @@ export function SendParcelPage() {
                 Cancel
               </button>
               <button
-                onClick={() =>
-                  pickupLocation && deliveryLocation
-                    ? setCurrentStep(2)
-                    : showError(
-                        "Please select both pickup and delivery locations to continue.",
-                      )
-                }
+                onClick={handleContinueFromStep1}
+                disabled={isSavingStep1}
                 className={primaryBtnClasses}
               >
-                Continue <ChevronRight className="w-5 h-5" />
+                {isSavingStep1 ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Continue <ChevronRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -345,27 +516,30 @@ export function SendParcelPage() {
             <PackageDetails
               onContinue={handleContinueFromPackageDetails}
               onBack={() => setCurrentStep(1)}
+              key={draftId ?? "new-draft"}
             />
+            {isSavingStep2 && (
+              <div className="flex items-center justify-center gap-3 text-sm font-bold text-[#39B5A8]">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving parcel details...
+              </div>
+            )}
           </div>
         )}
 
         {/* Step 3: Your Cart */}
         {currentStep === 3 && (
           <div className="space-y-6 animate-in fade-in w-full">
+            {isLoadingDraft && (
+              <div className="flex items-center justify-center gap-3 text-sm font-bold text-[#39B5A8]">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading cart...
+              </div>
+            )}
             <ParcelCart
               items={cartItems}
-              onUpdateQuantity={(id, q) =>
-                setCartItems((prev) =>
-                  prev.map((i) =>
-                    i.id === id ? { ...i, quantity: q } : i,
-                  ),
-                )
-              }
-              onRemoveItem={(id) =>
-                setCartItems((prev) =>
-                  prev.filter((i) => i.id !== id),
-                )
-              }
+              onUpdateQuantity={handleUpdateCartQuantity}
+              onRemoveItem={handleRemoveCartItem}
               onContinue={() =>
                 cartItems.length > 0
                   ? setCurrentStep(4)
@@ -373,6 +547,7 @@ export function SendParcelPage() {
                       "Please add at least one parcel to continue.",
                     )
               }
+              busyItemId={busyCartItemId}
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button
